@@ -1,0 +1,120 @@
+---
+# tasks file for ansible_galera_cluster_centos7
+
+- name: Stopping/killing MariaDB service
+  shell: pkill -9 -u mysql || true
+
+- name: Deleting /root/.my.cnf file
+  file:
+    path=/root/.my.cnf
+    state=absent
+
+- name: delete old mysql version
+  yum:
+    name: "{{ mysql_to_remove }}"
+    state: absent
+
+- name: delete old folder
+  file:
+    path: /var/lib/mysql
+    state: absent
+
+- name: upgrade all packages
+  yum:
+    name: '*'
+    state: latest
+
+- name: Install some packages
+  yum:
+    name: "{{ packages }}"
+    state: installed
+
+- name: copy repository
+  copy:
+    src: MariaDB.repo
+    dest: /etc/yum.repo.d/
+
+- name: install MariaDB galera cluster packages
+  yum:
+    name: "{{ galera_cluster_packages }}"
+    state: installed
+
+- name: start MariaDB
+  service:
+    name: mariadb
+    enabled: yes
+    state: started
+
+- name: add file my.cnf
+  template:
+    src: my.cnf.j2
+    dest: /root/.my.cnf
+    mode: '0600'
+
+- name: Set root Password
+  mysql_user:
+    login_password: "{{ mysql_root_password }}" 
+    check_implicit_admin: yes 
+    name: root 
+    host: "{{ item }}"
+    password: "{{ mysql_root_password }}" 
+    state: present 
+  with_items:
+    - localhost
+    - 127.0.0.1
+    - ::1
+
+- name: Update root password
+  mysql_user:
+    name: root
+    host_all: yes
+    password: "{{ mysql_root_password }}"
+    state: present
+
+- name: Remove test database
+  mysql_db:
+    name: test
+    state: absent
+
+- name: Remove all anonymous user accounts
+  mysql_user:
+    name: ''
+    host_all: yes
+    state: absent
+
+- name: create database cluster_user and set password
+  mysql_user:
+    name: cluster_user
+    password: "{{ mysql_root_password }}"
+    priv: '*.*:ALL'
+    host: '%'
+    state: present
+
+- name: Flush privilege on database
+  command: 'mysql -ne "{{ item }}"'
+  with_items:
+    - FLUSH PRIVILEGES
+
+- name: stop MariaDB on all nodes
+  service:
+    name: mariadb
+    state: stopped
+
+- name: add file server.cnf
+  template:
+    src: server.cnf.j2
+    dest: /etc/my.cnf.d/server.cnf
+    force: yes
+
+- name: Initialize master node on galera1 only
+  command: 'galera_new_cluster'
+  when: inventory_hostname == groups['galera'][0]
+
+- name: pause 30 seconds
+  pause: seconds=15
+
+- name: Add additionnal cluster nodes
+  service:
+    name: mariadb
+    state: started
+  when: inventory_hostname != groups['galera'][0]

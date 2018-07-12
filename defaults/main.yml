@@ -1,0 +1,23 @@
+---
+# defaults file for ansible_galera_cluster_centos7
+packages:
+  - net-tools
+  - socat
+  - nmap-ncat
+  - rsync
+
+mysql_to_remove:
+  - mysql-server
+  - mysql
+  - mysql-devel
+
+galera_cluster_packages:
+  - MariaDB-server
+  - MariaDB-client
+  - MariaDB-common
+  - MySQL-python
+  - galera
+  - jemalloc
+
+
+mysql_root_password: azerty123

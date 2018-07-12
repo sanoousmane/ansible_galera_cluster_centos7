@@ -1,0 +1,5 @@
+---
+- hosts: galera
+  remote_user: root
+  roles:
+    - ansible_galera_cluster_centos7
