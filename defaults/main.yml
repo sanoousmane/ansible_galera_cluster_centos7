@@ -19,5 +19,4 @@ galera_cluster_packages:
   - galera
   - jemalloc
 
-
 mysql_root_password: azerty123
